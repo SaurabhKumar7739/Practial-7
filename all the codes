@@ -1,0 +1,442 @@
+Source: FeedbackController.cs  
+using Microsoft.AspNetCore.Mvc; 
+using FeedbackManagementApp.Models;  
+namespace FeedbackManagementApp.Controllers  
+{  
+public class FeedbackController : Controller  
+{  
+// In
+memory static list to retain feedback entries during application runtime         
+private static readonly List<Feedback> _feedbackList = new 
+List<Feedback>();  
+[HttpGet]  
+public IActionResult Index()  
+{  
+// Analytics computations passed to the View  
+ViewBag.TotalCount = _feedbackList.Count;  
+ViewBag.AverageRating = _feedbackList.Any() ? _feedbackList.Average(f => 
+f.Rating) : 0.0;  
+ViewBag.PositivePercentage = _feedbackList.Any()  
+? (_feedbackList.Count(f => f.Rating >= 4) * 100 / _feedbackList.Count)  
+: 0;  
+return 
+}  
+View(_feedbackList);  
+[HttpGet]  
+public IActionResult Create()  
+{  
+return View();  
+}  
+[HttpPost]  
+[ValidateAntiForgeryToken]  
+public IActionResult Create(Feedback feedback)  
+{  
+if (ModelState.IsValid)  
+{  
+feedback.Id = _feedbackList.Count + 1;                 
+feedback.SubmittedOn = DateTime.Now;  
+_feedbackList.Add(feedback);  
+TempData["SuccessMessage"] = "Thank you! Your feedback has been submitted 
+successfully.";  
+return RedirectToAction(nameof(Index));  
+}  
+// Return to view with validation errors if invalid  
+return View(feedback);  
+}  
+}  
+}  
+Source: HomeController.cs  
+using System.Diagnostics; using 
+FeedbackManagementApp.Models; using 
+Microsoft.AspNetCore.Mvc;  
+namespace FeedbackManagementApp.Controllers  
+{  
+public class HomeController : Controller  
+{  
+private readonly ILogger<HomeController> _logger;  
+public HomeController(ILogger<HomeController> logger)  
+{  
+_logger = logger;  
+}  
+public IActionResult Index()  
+{  
+return View();  
+}  
+public IActionResult Privacy()  
+{  
+return View();  
+}  
+[ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]  
+public IActionResult Error()  
+{              
+return View(new ErrorViewModel { RequestId = Activity.Current?.Id ??  
+HttpContext.TraceIdentifier });  
+}  
+}  
+}  
+Source: Feedback.cs   
+using System.ComponentModel.DataAnnotations;  
+namespace FeedbackManagementApp.Models  
+{  
+public class Feedback  
+{  
+public int Id { get; set; }  
+[Required(ErrorMessage = "Full Name is required.")]  
+[StringLength(50, ErrorMessage = "Name cannot exceed 50 characters.")]  
+  
+        [Display(Name = "Full Name")]  
+        public string FullName { get; set; } = string.Empty;   
+        [Required(ErrorMessage = "Email address is required.")]  
+        [EmailAddress(ErrorMessage = "Please enter a valid email address.")]  
+        [Display(Name = "Email Address")]  
+        public string Email { get; set; } = string.Empty;  
+  
+        [Required(ErrorMessage = "Please select a feedback category.")]  
+        [Display(Name = "Feedback Category")]  
+        public string Category { get; set; } = string.Empty;   
+        [Required(ErrorMessage = "Please give us a star rating.")]  
+        [Range(1, 5, ErrorMessage = "Rating must be between 1 and 5 stars.")]  
+        public int Rating { get; set; }  
+  
+        [Required(ErrorMessage = "Feedback comments are required.")]  
+        [MinLength(10, ErrorMessage = "Comments must be at least 10 characters long.")]  
+        [Display(Name = "Your Feedback")]  
+        public string Comments { get; set; } = string.Empty;  
+  
+        public DateTime SubmittedOn { get; set; } = DateTime.Now;  
+    }  
+}  
+  
+Source: _FeedbackItem.cshtml  
+  
+@model FeedbackManagementApp.Models.Feedback  
+  
+<div class="card mb-3 border-0 shadow-sm rounded-3 border-start border-4 @(Model.Rating >= 4  
+? "border-success" : Model.Rating == 3 ? "border-warning" : "border-danger")">     
+<div class="card-body p-4">  
+        <div class="d-flex justify-content-between align-items-center mb-2">  
+            <div>  
+                <h5 class="fw-bold mb-0 text-dark">@Model.FullName</h5>  
+                 <small class="badge bg-light text-secondary border mt
+1">@Model.Category</small>  
+            </div>  
+            <div class="text-warning fs-5 fw-bold">  
+                @for (int i = 0; i < Model.Rating; i++)  
+                {  
+                    <span>★</span>  
+                }  
+                @for (int i = Model.Rating; i < 5; i++)  
+                {  
+                    <span class="text-muted opacity-25">★</span>  
+                }  
+                <small class="text-dark fs-6 ms-1">(@Model.Rating/5)</small>  
+            </div>  
+        </div>  
+  
+         <p class="card-text my-3 text-secondary" style="white-space: pre
+line;">@Model.Comments</p>   
+        <div class="d-flex justify-content-between align-items-center text-muted small pt-2 
+border-top">  
+            <span><strong>Email:</strong> @Model.Email</span>  
+  
+            <span><i class="bi bi-clock"></i> @Model.SubmittedOn.ToString("MMM dd, yyyy · hh:mm 
+tt")</span>  
+        </div>  
+    </div>  
+</div>  
+  
+SOURCE:Index.cshtml  
+  
+@model IEnumerable<FeedbackManagementApp.Models.Feedback>  
+  
+@{  
+    ViewData["Title"] = "Feedback Dashboard";  
+}  
+  
+<div class="my-4">  
+    <div class="d-flex justify-content-between align-items-center mb-4">         
+<div>  
+            <h2 class="fw-bold m-0 text-dark">Feedback Overview</h2>  
+            <p class="text-muted m-0">Real-time user feedback and analytics</p>         
+</div>  
+         <a asp-action="Create" class="btn btn-primary btn-lg shadow-sm">+ Submit New  
+Feedback</a>  
+    </div>  
+  
+    <!-- Alert Banner -->  
+    @if (TempData["SuccessMessage"] != null)  
+    {  
+        <div class="alert alert-success alert-dismissible fade show shadow-sm" role="alert">  
+            <i class="bi bi-check-circle-fill me-2"></i> @TempData["SuccessMessage"]  
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria
+label="Close"></button>  
+        </div>  
+    }  
+  
+    <!-- Analytics Counters -->  
+    <div class="row g-3 mb-4">  
+        <div class="col-md-4">  
+            <div class="card border-0 shadow-sm bg-white p-3 text-center rounded-3">  
+                <span class="text-muted text-uppercase fw-bold small">Total Responses</span>  
+                <h2 class="fw-bold text-primary m-0 mt-1">@ViewBag.TotalCount</h2>  
+            </div>  
+        </div>  
+        <div class="col-md-4">  
+            <div class="card border-0 shadow-sm bg-white p-3 text-center rounded-3">  
+                <span class="text-muted text-uppercase fw-bold small">Average Rating</span>  
+                 <h2 class="fw-bold text-warning m-0  
+mt-1">@ViewBag.AverageRating.ToString("0.0") <small class="fs-6 text-muted">/ 5</small></h2>  
+            </div>  
+        </div>  
+        <div class="col-md-4">  
+            <div class="card border-0 shadow-sm bg-white p-3 text-center rounded-3">  
+                <span class="text-muted text-uppercase fw-bold small">Positive Sentiment (4 ★ & 
+5★)</span>  
+                <h2 class="fw-bold text-success m-0 mt-1">@ViewBag.PositivePercentage%</h2>  
+  
+            </div>  
+        </div>  
+    </div>  
+  
+    <!-- Feedback Entries rendered using Partial View -->  
+    <div class="row">  
+        <div class="col-12">  
+            @if (!Model.Any())  
+            {  
+                <div class="card border-0 shadow-sm p-5 text-center my-3">  
+                    <h4 class="text-muted mb-3">No feedback submissions found yet.</h4>                     
+<div>  
+                        <a asp-action="Create" class="btn btn-outline-primary px-4">Be the first 
+to submit feedback</a>                     </div>  
+                </div>  
+            }             
+else  
+            {  
+                @foreach (var item in Model.OrderByDescending(f => f.SubmittedOn))                 
+{  
+                    @await Html.PartialAsync("_FeedbackItem", item)  
+                }  
+            }  
+        </div>  
+    </div>  
+</div>  
+  
+Source: Create.cshtml  
+  
+@model FeedbackManagementApp.Models.Feedback  
+  
+@{  
+    ViewData["Title"] = "Submit Feedback";  
+}  
+  
+<style>  
+    /* Radio-based Interactive CSS Star Rating Control */  
+    .star-rating {         
+display: flex;  
+        flex-direction: row-reverse;         justify
+content: flex-end;  
+        gap: 0.25rem;  
+    }  
+  
+        .star-rating input {             
+display: none;  
+        }  
+  
+        .star-rating label {             
+font-size: 2.2rem;             
+color: #ddd;             cursor: 
+pointer;  
+            transition: color 0.2s ease-in-out;  
+        }  
+  
+  
+            .star-rating input:checked ~ label,  
+            .star-rating label:hover,  
+            .star-rating label:hover ~ label {  
+                color: #ffc107;  
+            }  
+</style>  
+  
+<div class="row justify-content-center my-4">  
+    <div class="col-lg-7 col-md-9">  
+        <div class="card shadow border-0 rounded-4">  
+            <div class="card-header bg-primary bg-gradient text-white p-4 rounded-top-4">  
+                <h3 class="mb-1 fw-bold">Share Your Experience</h3>  
+                <p class="mb-0 text-white-50">We value your input to continuously improve our 
+platform.</p>  
+            </div>  
+  
+            <div class="card-body p-4 p-md-5">  
+                @using (Html.BeginForm("Create", "Feedback", FormMethod.Post))                 
+{  
+                    @Html.AntiForgeryToken()  
+  
+                    @if (!ViewData.ModelState.IsValid && ViewData.ModelState.Values.Any(v => 
+v.Errors.Count > 0))  
+                    {  
+                        <div class="alert alert-danger mb-4">  
+                            @Html.ValidationSummary(false, "Please correct the errors below 
+before submitting:")  
+                        </div>  
+                    }  
+  
+                    <!-- Full Name & Email -->  
+                    <div class="row g-3 mb-3">  
+                        <div class="col-md-6">  
+                            @Html.LabelFor(m => m.FullName, new { @class = "form-label fw
+semibold" })  
+                            @Html.TextBoxFor(m => m.FullName, new { @class = "form-control 
+form-control-lg", placeholder = "John Doe" })  
+                             @Html.ValidationMessageFor(m => m.FullName, "", new { @class =  
+"text-danger small" })  
+                        </div>  
+                        <div class="col-md-6">  
+                            @Html.LabelFor(m => m.Email, new { @class = "form-label fw
+semibold" })  
+                            @Html.TextBoxFor(m => m.Email, new { @class = "form-control form
+control-lg", placeholder = "john@example.com" })  
+                             @Html.ValidationMessageFor(m => m.Email, "", new { @class =  
+"text-danger small" })  
+                        </div>  
+                    </div>  
+  
+                    <!-- Category Dropdown -->  
+                    <div class="mb-3">  
+                        @Html.LabelFor(m => m.Category, new { @class = "form-label fw-semibold"  
+})  
+  
+                        @Html.DropDownListFor(m => m.Category, new SelectList(new[]  
+                        {  
+                            "General Feedback",  
+                                        "Bug / Technical Issue",  
+                                        "Feature Request",  
+                                        "User Interface / Design",  
+                                        "Other"  
+                                         }), "-- Select Category --", new { @class =  
+"form-select form-select-lg" })  
+                    @Html.ValidationMessageFor(m => m.Category, "", new { @class = "text-danger 
+small" })  
+                </div>  
+  
+                <!-- Star Rating (HTML Helper bound via Radio Buttons) -->  
+                <div class="mb-3">  
+                    @Html.LabelFor(m => m.Rating, new { @class = "form-label fw-semibold d
+block" })  
+                    <div class="star-rating mb-1">  
+                        <input type="radio" id="star5" name="Rating" value="5" @(Model?.Rating  
+== 5 ? "checked" : "") />  
+                        <label for="star5" title="5 Stars"> ★</label>  
+  
+                        <input type="radio" id="star4" name="Rating" value="4" @(Model?.Rating  
+== 4 ? "checked" : "") />  
+                        <label for="star4" title="4 Stars"> ★</label>  
+  
+                        <input type="radio" id="star3" name="Rating" value="3" @(Model?.Rating  
+== 3 ? "checked" : "") />  
+                        <label for="star3" title="3 Stars"> ★</label>  
+  
+                        <input type="radio" id="star2" name="Rating" value="2" @(Model?.Rating  
+== 2 ? "checked" : "") />  
+                        <label for="star2" title="2 Stars"> ★</label>  
+  
+                        <input type="radio" id="star1" name="Rating" value="1" @(Model?.Rating  
+== 1 ? "checked" : "") />  
+                        <label for="star1" title="1 Star"> ★</label>  
+                    </div>  
+                    @Html.ValidationMessageFor(m => m.Rating, "", new { @class = "text-danger 
+small d-block" })  
+                </div>  
+  
+                <!-- Comments Textarea -->  
+                <div class="mb-4">  
+                    @Html.LabelFor(m => m.Comments, new { @class = "form-label fw-semibold" })  
+                    @Html.TextAreaFor(m => m.Comments, new { @class = "form-control", rows = 4, 
+placeholder = "Tell us what you liked or what we can improve..." })  
+                    @Html.ValidationMessageFor(m => m.Comments, "", new { @class = "text-danger 
+small" })  
+                </div>  
+  
+                <!-- Actions -->  
+                <div class="d-flex justify-content-between align-items-center pt-3 border-top">  
+  
+                     <a asp-action="Index" class="btn btn-outline-secondary px-4">View All 
+Submissions</a>  
+                    <button type="submit" class="btn btn-primary btn-lg px-5 shadow-sm">Submit  
+Feedback</button>  
+                </div>  
+                                }  
+            </div>  
+        </div>  
+    </div>  
+</div>  
+  
+@section Scripts {  
+    @{  
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");  
+    }  
+}  
+  
+Source: _layout.cshtml  
+<!DOCTYPE html>  
+<html lang="en">  
+<head>  
+    <meta charset="utf-8" />  
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />     
+<title>@ViewData["Title"] - FeedbackManagementApp</title>  
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />  
+     <link  rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap
+icons@1.11.3/font/bootstrap-icons.min.css">  
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />  
+    <link rel="stylesheet" href="~/FeedbackManagementApp.styles.css" asp-append-version="true"  
+/>  
+</head>  
+<body>  
+    <header>  
+        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border
+bottom box-shadow mb-3">  
+            <div class="container-fluid">  
+                <a class="navbar-brand fw-bold" asp-area="" asp-controller="Home" asp
+action="Index">FeedbackManagementApp</a>  
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs
+target=".navbar-collapse" aria-controls="navbarSupportedContent"  
+                        aria-expanded="false" aria-label="Toggle navigation">  
+                    <span class="navbar-toggler-icon"></span>  
+                </button>  
+                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">  
+                    <ul class="navbar-nav flex-grow-1">  
+                        <li class="nav-item">  
+                             <a class="nav-link text-dark" asp-area="" asp-controller="Home" 
+asp-action="Index">Home</a>  
+                        </li>  
+                        <li class="nav-item">  
+                            <a class="nav-link text-dark fw-semibold" asp-area="" asp
+controller="Feedback" asp-action="Index">Feedback</a>  
+                        </li>  
+                        <li class="nav-item">  
+  
+                            <a class="nav-link text-dark" asp-area="" asp-controller="Home" 
+asp-action="Privacy">Privacy</a>  
+                        </li>  
+                    </ul>  
+                </div>  
+            </div>  
+        </nav>  
+    </header>  
+    <div class="container">  
+        <main role="main" class="pb-3">  
+            @RenderBody()  
+        </main>  
+    </div>  
+  
+    <footer class="border-top footer text-muted">  
+        <div class="container">  
+            &copy; 2026 - FeedbackManagementApp - <a asp-area="" asp-controller="Home" asp
+action="Privacy">Privacy</a>  
+        </div>  
+    </footer>  
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>  
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>  
+    <script src="~/js/site.js" asp-append-version="true"></script>  
+    @await RenderSectionAsync("Scripts", required: false)  
+</body>  
+</html>  
